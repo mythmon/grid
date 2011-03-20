@@ -4,7 +4,7 @@ import pygtk
 import gtk, gobject, cairo
 from gtk import gdk
 import math
-from random import random
+import random
 from time import time
 
 class Screen(gtk.DrawingArea):
@@ -97,10 +97,66 @@ class Grid(Doodad):
         cr.restore()
 
     def tick(self):
-        if self.grid[0][0] == 0:
-            self.grid[0][0] = 1
-        else:
-            self.grid[0][0] = 0
+        pass
+
+class Water(Grid):
+    """Simple water automata."""
+
+    def __init__(self, screen, w, h):
+        super(Water, self).__init__(screen, w, h)
+        # 0: air, 1: water, 2: wall
+        self.colors = [(1,1,1), (0,0,1), (0,0,0)]
+
+        for _ in range(int(self.w * self.h * 0.5)):
+            x = int(random.random()*(self.w-2))+1
+            y = int(random.random()*(self.h-2))+1
+            k = random.random()
+
+            if k > 0.8:
+                self.grid[x][y] = 2
+            else:
+                self.grid[x][y] = 1
+
+        for x in range(self.w):
+            self.grid[x][0] = 2
+            self.grid[x][-1] = 2
+        for y in range(self.h):
+            self.grid[0][y] = 2
+            self.grid[-1][y] = 2
+
+    def tick(self):
+        # iterate from the bottom to the top
+        for y in range(self.h-2, 0, -1):
+            for x in range(1,self.w-1):
+                # Only process water
+                if self.grid[x][y] != 1:
+                    continue
+
+                # Fall straight down
+                if self.grid[x][y+1] == 0:
+                    self.grid[x][y] = 0
+                    self.grid[x][y+1] = 1
+                    continue
+
+                fall_choice = []
+                # Fall down and to the side
+                if self.grid[x-1][y+1] == 0:
+                    fall_choice.append((x-1,y+1))
+                if self.grid[x+1][y+1] == 0:
+                    fall_choice.append((x+1,y+1))
+
+                # Roll towards a fall
+                if x > 1:
+                    if self.grid[x-1][y+1] != 0 and self.grid[x-2][y+1] == 0:
+                        fall_choice.append((x-1,y))
+                if x < self.w - 2:
+                    if self.grid[x+1][y+1] != 0 and self.grid[x+2][y+1] == 0:
+                        fall_choice.append((x+1,y))
+
+                if len(fall_choice) > 0:
+                    x_, y_ = random.choice(fall_choice)
+                    self.grid[x][y] = 0
+                    self.grid[x_][y_] = 1
 
 class GOL(Grid):
     """Game of life. Kind of slow."""
@@ -139,7 +195,7 @@ def run( Widget, speed ):
     window.connect( "delete-event", gtk.main_quit )
     widget = Widget( w, h, speed )
 
-    GOL(widget, 100, 100)
+    Water(widget, 100, 100)
 
     widget.show()
     window.add(widget)
@@ -148,4 +204,4 @@ def run( Widget, speed ):
     gtk.main()
 
 if __name__ == '__main__':
-    run(Screen, 500)
+    run(Screen, 100)
