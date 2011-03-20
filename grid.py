@@ -73,10 +73,6 @@ class Grid(Doodad):
         # Make a  grid of zeros.
         self.w, self.h = w, h
         self.grid = [[0] * self.h for _ in range(self.w)]
-        for _ in range(int(self.w * self.h * 0.5)):
-            x = int(random()*self.w)
-            y = int(random()*self.h)
-            self.grid[x][y] = 1
 
         self.colors = [(1,1,1), (0,0,0)]
 
@@ -111,12 +107,10 @@ class GOL(Grid):
 
     def __init__(self, screen, w, h):
         super(GOL, self).__init__(screen, w, h)
-        for x in range(w):
-            self.grid[x][0] = 0
-            self.grid[x][h-1] = 0
-        for y in range(h):
-            self.grid[0][y] = 0
-            self.grid[w-1][y] = 0
+        for _ in range(int(self.w * self.h * 0.5)):
+            x = int(random()*(self.w-2))+1
+            y = int(random()*(self.h-2))+1
+            self.grid[x][y] = 1
 
     def tick(self):
         grid_copy = [row[:] for row in self.grid]
