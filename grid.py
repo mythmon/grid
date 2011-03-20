@@ -78,6 +78,8 @@ class Grid(Doodad):
             y = int(random()*self.h)
             self.grid[x][y] = 1
 
+        self.colors = [(1,1,1), (0,0,0)]
+
         self.screen = screen
         screen.addDoodad(self)
 
@@ -85,36 +87,16 @@ class Grid(Doodad):
         cr.save()
         cr.translate(10,10)
 
-        pix_w = Grid.cell_size * self.w
-        pix_h = Grid.cell_size * self.h
-        live_surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, pix_w, pix_h)
-        dead_surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, pix_w, pix_h)
-        live_cr = cairo.Context(live_surf)
-        dead_cr = cairo.Context(dead_surf)
-
-        live_cr.set_source_rgb(0,0,0)
-        dead_cr.set_source_rgb(1,1,1)
-
         for y in range(self.h):
+            cr.save()
             for x in range(self.w):
-                if self.grid[x][y] == 1:
-                    live_cr.rectangle(0, 0, Grid.cell_size - 1, Grid.cell_size - 1)
-                else:
-                    dead_cr.rectangle(0, 0, Grid.cell_size - 1, Grid.cell_size - 1)
+                cr.set_source_rgb(*self.colors[self.grid[x][y]])
+                cr.rectangle(0, 0, Grid.cell_size - 1, Grid.cell_size - 1)
+                cr.fill()
+                cr.translate(Grid.cell_size, 0)
 
-                live_cr.translate(Grid.cell_size, 0)
-                dead_cr.translate(Grid.cell_size, 0)
-
-            live_cr.translate(Grid.cell_size * self.w * -1, Grid.cell_size)
-            dead_cr.translate(Grid.cell_size * self.w * -1, Grid.cell_size)
-        live_cr.fill()
-        dead_cr.fill()
-
-        cr.rectangle(0,0,pix_w,pix_h)
-        cr.set_source_surface(live_surf)
-        cr.fill_preserve()
-        cr.set_source_surface(dead_surf)
-        cr.fill_preserve()
+            cr.restore()
+            cr.translate(0, Grid.cell_size)
 
         cr.restore()
 
@@ -125,6 +107,7 @@ class Grid(Doodad):
             self.grid[0][0] = 0
 
 class GOL(Grid):
+    """Game of life. Kind of slow."""
 
     def __init__(self, screen, w, h):
         super(GOL, self).__init__(screen, w, h)
@@ -171,4 +154,4 @@ def run( Widget, speed ):
     gtk.main()
 
 if __name__ == '__main__':
-    run(Screen, 200)
+    run(Screen, 500)
