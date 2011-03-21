@@ -75,9 +75,9 @@ class Grid(Doodad):
         self.grid = [[0] * self.h for _ in range(self.w)]
 
         self.colors = [(1,1,1), (0,0,0)]
-
         self.screen = screen
         screen.addDoodad(self)
+        self.frame = 0
 
     def draw(self, cr):
         cr.save()
@@ -87,7 +87,7 @@ class Grid(Doodad):
             cr.save()
             for x in range(self.w):
                 cr.set_source_rgb(*self.colors[self.grid[x][y]])
-                cr.rectangle(0, 0, Grid.cell_size - 1, Grid.cell_size - 1)
+                cr.rectangle(0, 0, Grid.cell_size, Grid.cell_size)
                 cr.fill()
                 cr.translate(Grid.cell_size, 0)
 
@@ -97,7 +97,7 @@ class Grid(Doodad):
         cr.restore()
 
     def tick(self):
-        pass
+        self.frame += 1
 
 class Water(Grid):
     """Simple water automata."""
@@ -105,58 +105,106 @@ class Water(Grid):
     def __init__(self, screen, w, h):
         super(Water, self).__init__(screen, w, h)
         # 0: air, 1: water, 2: wall
-        self.colors = [(1,1,1), (0,0,1), (0,0,0)]
+        # 3: source, 4: sink
+        self.colors = [(1,1,1), (0,0,1), (0,0,0), (0,0,0.7), (1,0,0)]
 
-        for _ in range(int(self.w * self.h * 0.5)):
+        for _ in range(int(self.w * self.h * 0.75)):
             x = int(random.random()*(self.w-2))+1
             y = int(random.random()*(self.h-2))+1
             k = random.random()
 
-            if k > 0.8:
+            if k > 0.7:
                 self.grid[x][y] = 2
-            else:
+            elif x <= self.w - 20:
                 self.grid[x][y] = 1
 
+        # place some sources on top
+        for _ in range(int(self.w * 0.25)):
+            x = int(random.random() * (self.w-2) + 1)
+            self.grid[x][1] = 3
+
+        # Cover the bottom in sinks
+        for _ in range(int(self.w * 0.25)):
+            x = int(random.random() * (self.w-20) + 1)
+            self.grid[x][-2] = 4
+
+        # Build the walls
         for x in range(self.w):
             self.grid[x][0] = 2
             self.grid[x][-1] = 2
         for y in range(self.h):
             self.grid[0][y] = 2
             self.grid[-1][y] = 2
+            self.grid[-20][y] = 2
 
     def tick(self):
+        super(Water, self).tick()
+
+        processors = {
+            0: self.cell_static,
+            1: self.cell_water,
+            2: self.cell_static,
+            3: self.cell_source,
+            4: self.cell_sink,
+        }
         # iterate from the bottom to the top
         for y in range(self.h-2, 0, -1):
             for x in range(1,self.w-1):
-                # Only process water
-                if self.grid[x][y] != 1:
-                    continue
+                processors[self.grid[x][y]](x,y)
 
-                # Fall straight down
-                if self.grid[x][y+1] == 0:
-                    self.grid[x][y] = 0
-                    self.grid[x][y+1] = 1
-                    continue
+    def cell_static(self, x, y):
+        pass
 
-                fall_choice = []
-                # Fall down and to the side
-                if self.grid[x-1][y+1] == 0:
-                    fall_choice.append((x-1,y+1))
-                if self.grid[x+1][y+1] == 0:
-                    fall_choice.append((x+1,y+1))
+    def cell_source(self, x, y):
+        if self.grid[x][y+1] == 0: # air
+            if random.random() > 0.5:
+                self.grid[x][y+1] = 1
 
-                # Roll towards a fall
-                if x > 1:
-                    if self.grid[x-1][y+1] != 0 and self.grid[x-2][y+1] == 0:
-                        fall_choice.append((x-1,y))
-                if x < self.w - 2:
-                    if self.grid[x+1][y+1] != 0 and self.grid[x+2][y+1] == 0:
-                        fall_choice.append((x+1,y))
+    def cell_sink(self, x, y):
+        if self.grid[x][y-1] == 1:
+            self.grid[x][y-1] = 0
+        if self.grid[x+1][y] == 1:
+            self.grid[x+1][y] = 0
+        if self.grid[x-1][y] == 1:
+            self.grid[x-1][y] = 0
 
-                if len(fall_choice) > 0:
-                    x_, y_ = random.choice(fall_choice)
-                    self.grid[x][y] = 0
-                    self.grid[x_][y_] = 1
+    def cell_water(self, x, y):
+        # Fall straight down
+        if self.grid[x][y+1] == 0:
+            self.grid[x][y] = 0
+            self.grid[x][y+1] = 1
+            return
+
+        fall_choice = []
+        # Fall down and to the side
+        if self.grid[x-1][y+1] == 0:
+            fall_choice.append((x-1,y+1))
+        if self.grid[x+1][y+1] == 0:
+            fall_choice.append((x+1,y+1))
+
+        # Roll towards a fall
+        if x > 1 and self.grid[x-1][y+1] != 0 and self.grid[x-2][y+1] == 0:
+            fall_choice.append((x-1,y))
+        if x < self.w - 2 and self.grid[x+1][y+1] != 0 and self.grid[x+2][y+1] == 0 and self.grid[x+1][y] == 0:
+            fall_choice.append((x+1,y))
+
+        if len(fall_choice) > 0:
+            x_, y_ = random.choice(fall_choice)
+            self.grid[x][y] = 0
+            self.grid[x_][y_] = 1
+            return
+
+        # len(fall_choice) == 0
+        # Make staying in place possible.
+        fall_choice.append((x,y))
+        if self.grid[x-1][y] == 0:
+            fall_choice.append((x-1,y))
+        if self.grid[x+1][y] == 0:
+            fall_choice.append((x+1,y))
+
+        x_, y_ = random.choice(fall_choice)
+        self.grid[x][y] = 0
+        self.grid[x_][y_] = 1
 
 class GOL(Grid):
     """Game of life. Kind of slow."""
@@ -204,4 +252,4 @@ def run( Widget, speed ):
     gtk.main()
 
 if __name__ == '__main__':
-    run(Screen, 100)
+    run(Screen, 200)
