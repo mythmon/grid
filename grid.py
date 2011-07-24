@@ -124,7 +124,7 @@ class Water(Grid):
             self.grid[x][1] = 3
 
         # Cover the bottom in sinks
-        for _ in range(int(self.w * 0.25)):
+        for _ in range(int(self.w * 0.15)):
             x = int(random.random() * (self.w-20) + 1)
             self.grid[x][-2] = 4
 
